@@ -72,8 +72,21 @@ func (s *Service) copyObject(w http.ResponseWriter, r *http.Request, bucketName,
 	if directive != "" && directive != "COPY" && directive != "REPLACE" {
 		return errInvalidArgument("Unknown metadata directive.")
 	}
+	tagDirective := strings.ToUpper(r.Header.Get("x-amz-tagging-directive"))
+	if tagDirective != "" && tagDirective != "COPY" && tagDirective != "REPLACE" {
+		return errInvalidArgument("Unknown tagging directive.")
+	}
+	var replaceTags map[string]string
+	if tagDirective == "REPLACE" {
+		if raw := r.Header.Get("x-amz-tagging"); raw != "" {
+			replaceTags, err = parseTaggingHeader(raw, maxObjectTags)
+			if err != nil {
+				return err
+			}
+		}
+	}
 	algorithm := r.Header.Get("x-amz-checksum-algorithm")
-	if from.bucket == bucketName && from.key == key && from.versionID == "" && directive != "REPLACE" && algorithm == "" {
+	if from.bucket == bucketName && from.key == key && from.versionID == "" && directive != "REPLACE" && tagDirective != "REPLACE" && algorithm == "" {
 		return errInvalidRequest("This copy request is illegal because it is trying to copy an object to itself " +
 			"without changing the object's metadata, storage class, website redirect location or encryption attributes.")
 	}
@@ -85,7 +98,18 @@ func (s *Service) copyObject(w http.ResponseWriter, r *http.Request, bucketName,
 	if err != nil {
 		return err
 	}
-	stored, err := s.store(bucketName, obj, cond, eventCopy, sourceOf(w, r))
+	stored, err := s.commitWithTags(bucketName, obj, cond, eventCopy, sourceOf(w, r),
+		func(*bucket) error { return nil },
+		func(dst *bucket) map[string]string {
+			if tagDirective == "REPLACE" {
+				return replaceTags
+			}
+			srcBucket := s.buckets[from.bucket]
+			if srcBucket == nil {
+				return nil
+			}
+			return srcBucket.objectTags[tagTarget{key: src.key, versionID: src.versionID}]
+		})
 	if err != nil {
 		return err
 	}

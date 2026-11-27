@@ -2,6 +2,7 @@ package s3
 
 import (
 	"io"
+	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -46,11 +47,18 @@ type ObjectView struct {
 	ETag         string
 	ContentType  string
 	VersionID    string // empty: the null version
+	Tags         map[string]string
 }
 
 func viewOf(o *object) ObjectView {
 	return ObjectView{Key: o.key, Size: o.size(), LastModified: o.lastModified, ETag: o.etag,
 		ContentType: o.meta.contentType, VersionID: o.versionID}
+}
+
+func viewOfTagged(b *bucket, o *object) ObjectView {
+	v := viewOf(o)
+	v.Tags = maps.Clone(b.objectTags[tagTarget{key: o.key, versionID: o.versionID}])
+	return v
 }
 
 // BucketInfo is a bucket's configuration.
@@ -114,7 +122,7 @@ func (s *Service) ListObjectViews(bucketName, prefix, contains string, max int) 
 	more := len(keys) > max
 	out := make([]ObjectView, 0, min(len(keys), max))
 	for _, k := range keys[:min(len(keys), max)] {
-		out = append(out, viewOf(b.current(k)))
+		out = append(out, viewOfTagged(b, b.current(k)))
 	}
 	return out, more, nil
 }
@@ -122,29 +130,37 @@ func (s *Service) ListObjectViews(bucketName, prefix, contains string, max int) 
 // currentObject is the version a plain GET of key sees. Its bytes may be
 // read after the lock is released: an object never changes once stored.
 func (s *Service) currentObject(bucketName, key string) (*object, error) {
+	o, _, err := s.currentObjectWithTags(bucketName, key)
+	return o, err
+}
+
+func (s *Service) currentObjectWithTags(bucketName, key string) (*object, map[string]string, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	b, err := s.bucketOf(bucketName)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	o := b.current(key)
 	if o == nil {
-		return nil, errNoSuchKey()
+		return nil, nil, errNoSuchKey()
 	}
-	return o, nil
+	tags := maps.Clone(b.objectTags[tagTarget{key: o.key, versionID: o.versionID}])
+	return o, tags, nil
 }
 
 // ObjectHead returns the first max bytes of a key's current version, its view
 // and whether those bytes are all of it.
 func (s *Service) ObjectHead(bucketName, key string, max int64) ([]byte, ObjectView, bool, error) {
-	o, err := s.currentObject(bucketName, key)
+	o, tags, err := s.currentObjectWithTags(bucketName, key)
 	if err != nil {
 		return nil, ObjectView{}, false, err
 	}
 	n := min(max, o.size())
 	data, err := o.body.read(0, n)
-	return data, viewOf(o), n == o.size(), err
+	v := viewOf(o)
+	v.Tags = tags
+	return data, v, n == o.size(), err
 }
 
 // WriteObject writes all of a key's current version to w and returns its view.
@@ -172,6 +188,7 @@ func (s *Service) EmptyBucket(name string) (int, error) {
 	}
 	n := len(b.objects)
 	b.objects = map[string][]*object{}
+	b.objectTags = map[tagTarget]map[string]string{}
 	b.uploads = map[string]*upload{}
 	return n, nil
 }

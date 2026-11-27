@@ -81,7 +81,8 @@ function editing() {
   <div><dt>Last modified</dt><dd>{{time .View.LastModified}}</dd></div>
   {{if .View.ContentType}}<div><dt>Content type</dt><dd>{{.View.ContentType}}</dd></div>{{end}}
   <div><dt>ETag</dt><dd>{{.View.ETag}}</dd></div>
-  {{if .View.VersionID}}<div><dt>Version</dt><dd>{{.View.VersionID}}</dd></div>{{end}}</dl>
+  {{if .View.VersionID}}<div><dt>Version</dt><dd>{{.View.VersionID}}</dd></div>{{end}}
+  {{if .View.Tags}}<div><dt>Tags</dt><dd>{{range $k, $v := .View.Tags}}<div><code>{{$k}}</code> = <code>{{$v}}</code></div>{{end}}</dd></div>{{end}}</dl>
   <div class="toolbar"><a class="button" href="/_stratus/ui/s3/{{$.Name}}/download?key={{.View.Key}}">Download</a><a href="/_stratus/ui/s3/{{$.Name}}">← {{$.Name}}</a></div>
 {{end}}{{end}}
 </section>{{end}}
@@ -200,10 +201,11 @@ function editing() {
 </div>{{end}}
 
 {{if eq .Kind "bucket"}}{{if .Objects}}<div class="scroll"><table>
-  <tr><th>Key</th><th class="n">Size</th><th>Last modified</th><th>Content type</th><th></th></tr>
+  <tr><th>Key</th><th class="n">Size</th><th>Last modified</th><th>Content type</th><th>Tags</th><th></th></tr>
   {{range .Objects}}<tr>
     <td class="key"><a href="/_stratus/ui/s3/{{$.Name}}/object?key={{.Key}}">{{.Key}}</a></td>
     <td class="n">{{bytes .Size}}</td><td>{{time .LastModified}}</td><td>{{.ContentType}}</td>
+    <td>{{range $k, $v := .Tags}}<div><code>{{$k}}</code> = <code>{{$v}}</code></div>{{end}}</td>
     <td class="actions"><a href="/_stratus/ui/s3/{{$.Name}}/download?key={{.Key}}">Download</a>
       <form hx-post="{{$.Self}}/delete" hx-target="#detail" hx-swap="innerHTML" hx-include="#filters" hx-confirm="Delete {{.Key}}?"><input type="hidden" name="object" value="{{.Key}}"><button class="small danger">Delete</button></form></td>
   </tr>{{end}}

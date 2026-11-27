@@ -165,3 +165,52 @@ func TestRestoreDropsAVersionWhoseBytesAreGone(t *testing.T) {
 		t.Fatalf("a.txt whose bytes are gone is still listed: %+v", o)
 	}
 }
+
+func TestSnapshotAndLifecycleHandleObjectTags(t *testing.T) {
+	identity := awsapi.Identity{Account: awsapi.DefaultAccount, Region: awsapi.DefaultRegion}
+	clk := clock.NewFake(time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC))
+	dir := t.TempDir()
+	s := New(identity, clk, dir)
+	if err := s.CreateBucket("docs", BucketOptions{
+		Versioning: true,
+		Lifecycle:  []LifecycleRule{{ID: "expire-old", NoncurrentDays: 1}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	b := s.buckets["docs"]
+	v1 := &object{key: "a.txt", versionID: "v1", lastModified: clk.Now()}
+	v2 := &object{key: "a.txt", versionID: "v2", lastModified: clk.Now()}
+	b.add(v1)
+	b.objectTags[tagTarget{key: "a.txt", versionID: "v1"}] = map[string]string{"ver": "1"}
+	clk.Advance(time.Hour)
+	v2.lastModified = clk.Now()
+	b.add(v2)
+	b.objectTags[tagTarget{key: "a.txt", versionID: "v2"}] = map[string]string{"ver": "2"}
+
+	// Snapshot + Restore keeps objectTags across versions.
+	data, err := s.Snapshot(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	next := New(identity, clk, dir)
+	if err := next.Restore(data, nil); err != nil {
+		t.Fatalf("Restore: %v", err)
+	}
+	gotV1 := next.buckets["docs"].objectTags[tagTarget{key: "a.txt", versionID: "v1"}]
+	gotV2 := next.buckets["docs"].objectTags[tagTarget{key: "a.txt", versionID: "v2"}]
+	if gotV1["ver"] != "1" || gotV2["ver"] != "2" {
+		t.Fatalf("restored objectTags = v1:%v v2:%v", gotV1, gotV2)
+	}
+
+	// Advancing past NoncurrentDays removes v1 AND its tags via setVersions.
+	clk.Advance(48 * time.Hour)
+	if n := next.ExpireLifecycle(); n == 0 {
+		t.Fatalf("ExpireLifecycle = %d, want >= 1", n)
+	}
+	if _, ok := next.buckets["docs"].objectTags[tagTarget{key: "a.txt", versionID: "v1"}]; ok {
+		t.Fatalf("expired noncurrent version tags leaked in objectTags")
+	}
+	if next.buckets["docs"].objectTags[tagTarget{key: "a.txt", versionID: "v2"}]["ver"] != "2" {
+		t.Fatalf("current version tags lost during lifecycle expiry")
+	}
+}

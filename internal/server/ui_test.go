@@ -235,3 +235,30 @@ func TestFormatBytes(t *testing.T) {
 		}
 	}
 }
+
+func TestUIObjectListAndDetailShowTags(t *testing.T) {
+	_, ts := newUIServer(t)
+	req, err := http.NewRequest(http.MethodPut, ts.URL+"/files/tagged.txt", strings.NewReader("payload"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("x-amz-tagging", "owner=alice&env=prod")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("PutObject = %d, want 200", resp.StatusCode)
+	}
+	code, listPage := get(t, ts.URL+"/_stratus/ui/s3/files")
+	if code != http.StatusOK || !strings.Contains(listPage, "<th>Tags</th>") ||
+		!strings.Contains(listPage, "<div><code>env</code> = <code>prod</code></div><div><code>owner</code> = <code>alice</code></div>") {
+		t.Fatalf("bucket object list = %d, without object tags", code)
+	}
+	code, objPage := get(t, ts.URL+"/_stratus/ui/s3/files/object?key=tagged.txt")
+	if code != http.StatusOK ||
+		!strings.Contains(objPage, "<dt>Tags</dt><dd><div><code>env</code> = <code>prod</code></div><div><code>owner</code> = <code>alice</code></div></dd>") {
+		t.Fatalf("object detail = %d, without object tags", code)
+	}
+}

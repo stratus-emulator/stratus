@@ -19,7 +19,14 @@ func (s *Service) createMultipartUpload(w http.ResponseWriter, r *http.Request, 
 	if err != nil {
 		return err
 	}
-	u := &upload{key: key, meta: metaFromHeaders(r.Header), algorithm: algorithm, checksumType: typ}
+	var tags map[string]string
+	if rawTags := r.Header.Get("x-amz-tagging"); rawTags != "" {
+		tags, err = parseTaggingHeader(rawTags, maxObjectTags)
+		if err != nil {
+			return err
+		}
+	}
+	u := &upload{key: key, meta: metaFromHeaders(r.Header), tags: tags, algorithm: algorithm, checksumType: typ}
 	if err := s.createUpload(bucketName, u); err != nil {
 		return err
 	}
@@ -168,13 +175,13 @@ func (s *Service) completeMultipartUpload(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		return err
 	}
-	stored, err := s.commit(bucketName, obj, cond, eventComplete, sourceOf(w, r), func(b *bucket) error {
+	stored, err := s.commitWithTags(bucketName, obj, cond, eventComplete, sourceOf(w, r), func(b *bucket) error {
 		if b.uploads[uploadID] != u {
 			return errNoSuchUpload()
 		}
 		delete(b.uploads, uploadID)
 		return nil
-	})
+	}, func(*bucket) map[string]string { return u.tags })
 	if err != nil {
 		return err
 	}

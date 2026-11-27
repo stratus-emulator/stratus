@@ -25,6 +25,7 @@ type upload struct {
 	key          string
 	initiated    time.Time
 	meta         objectMeta
+	tags         map[string]string
 	algorithm    string // the checksum algorithm named at creation; empty: none
 	checksumType string // checksumFullObject or checksumComposite when algorithm is set
 	parts        map[int]*part

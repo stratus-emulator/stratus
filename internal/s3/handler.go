@@ -157,12 +157,19 @@ func (s *Service) routeObject(w http.ResponseWriter, r *http.Request, bucketName
 	}
 	switch r.Method {
 	case http.MethodGet, http.MethodHead:
-		if q.Has("uploadId") && r.Method == http.MethodGet {
-			return s.listParts(w, bucketName, key, q)
+		if r.Method == http.MethodGet {
+			switch {
+			case q.Has("uploadId"):
+				return s.listParts(w, bucketName, key, q)
+			case q.Has("tagging"):
+				return s.getObjectTagging(w, bucketName, key, q)
+			}
 		}
 		return s.getObject(w, r, bucketName, key, q)
 	case http.MethodPut:
 		switch {
+		case q.Has("tagging"):
+			return s.putObjectTagging(w, r, bucketName, key, q)
 		case q.Has("uploadId") && r.Header.Get("x-amz-copy-source") != "":
 			return s.uploadPartCopy(w, r, bucketName, key, q)
 		case q.Has("uploadId"):
@@ -172,7 +179,10 @@ func (s *Service) routeObject(w http.ResponseWriter, r *http.Request, bucketName
 		}
 		return s.putObject(w, r, bucketName, key)
 	case http.MethodDelete:
-		if q.Has("uploadId") {
+		switch {
+		case q.Has("tagging"):
+			return s.deleteObjectTagging(w, bucketName, key, q)
+		case q.Has("uploadId"):
 			return s.abortMultipartUpload(w, bucketName, key, q)
 		}
 		return s.deleteObjectHTTP(w, r, bucketName, key, q)
@@ -202,7 +212,7 @@ var (
 		"intelligent-tiering": "BucketIntelligentTieringConfiguration",
 	}
 	objectSubresources = map[string]string{
-		"acl": "ObjectAcl", "tagging": "ObjectTagging", "retention": "ObjectRetention",
+		"acl": "ObjectAcl", "retention": "ObjectRetention",
 		"legal-hold": "ObjectLegalHold", "attributes": "ObjectAttributes", "torrent": "ObjectTorrent",
 		"restore": "RestoreObject", "select": "SelectObjectContent", "renameObject": "RenameObject",
 	}

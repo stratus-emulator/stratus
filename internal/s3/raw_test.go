@@ -81,9 +81,9 @@ func TestRawErrorShapes(t *testing.T) {
 		!strings.Contains(body, "BadDigest") {
 		t.Fatalf("Content-MD5 mismatch: %d %s", status, body)
 	}
-	if status, _, body := raw(t, e, http.MethodGet, "/raw/k?tagging", "", nil); status != http.StatusNotImplemented ||
-		!strings.Contains(body, "GetObjectTagging") {
-		t.Fatalf("tagging: %d %s", status, body)
+	if status, _, body := raw(t, e, http.MethodGet, "/raw/k?acl", "", nil); status != http.StatusNotImplemented ||
+		!strings.Contains(body, "GetObjectAcl") {
+		t.Fatalf("acl: %d %s", status, body)
 	}
 }
 

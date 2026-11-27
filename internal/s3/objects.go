@@ -1,6 +1,7 @@
 package s3
 
 import (
+	"maps"
 	"net/http"
 	"strings"
 	"time"
@@ -71,6 +72,12 @@ func (s *Service) store(bucketName string, obj *object, cond writeCondition, eve
 func (s *Service) commit(bucketName string, obj *object, cond writeCondition, event string, src eventSource,
 	claim func(*bucket) error,
 ) (*object, error) {
+	return s.commitWithTags(bucketName, obj, cond, event, src, claim, nil)
+}
+
+func (s *Service) commitWithTags(bucketName string, obj *object, cond writeCondition, event string, src eventSource,
+	claim func(*bucket) error, resolveTags func(*bucket) map[string]string,
+) (*object, error) {
 	s.mu.Lock()
 	b, err := s.bucketOf(bucketName)
 	if err == nil {
@@ -83,9 +90,16 @@ func (s *Service) commit(bucketName string, obj *object, cond writeCondition, ev
 		s.mu.Unlock()
 		return nil, err
 	}
+	var tags map[string]string
+	if resolveTags != nil {
+		tags = resolveTags(b)
+	}
 	obj.versionID = b.newVersionID()
 	obj.lastModified = s.clock.Now()
 	b.add(obj)
+	if len(tags) > 0 {
+		b.objectTags[tagTarget{key: obj.key, versionID: obj.versionID}] = maps.Clone(tags)
+	}
 	deliveries := s.eventsLocked(b, obj, event, src)
 	s.mu.Unlock()
 

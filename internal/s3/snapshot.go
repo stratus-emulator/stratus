@@ -55,25 +55,27 @@ type checksumSnapshot struct {
 }
 
 type objectSnapshot struct {
-	Key          string           `json:"key"`
-	VersionID    string           `json:"versionId,omitempty"`
-	DeleteMarker bool             `json:"deleteMarker,omitempty"`
-	Body         *blobRef         `json:"body,omitempty"` // nil for a delete marker
-	ETag         string           `json:"etag,omitempty"`
-	LastModified time.Time        `json:"lastModified"`
-	Meta         metaSnapshot     `json:"meta"`
-	Checksum     checksumSnapshot `json:"checksum"`
-	PartSizes    []int64          `json:"partSizes,omitempty"`
+	Key          string            `json:"key"`
+	VersionID    string            `json:"versionId,omitempty"`
+	DeleteMarker bool              `json:"deleteMarker,omitempty"`
+	Body         *blobRef          `json:"body,omitempty"` // nil for a delete marker
+	ETag         string            `json:"etag,omitempty"`
+	LastModified time.Time         `json:"lastModified"`
+	Meta         metaSnapshot      `json:"meta"`
+	Checksum     checksumSnapshot  `json:"checksum"`
+	PartSizes    []int64           `json:"partSizes,omitempty"`
+	Tags         map[string]string `json:"tags,omitempty"`
 }
 
 type uploadSnapshot struct {
-	ID           string         `json:"id"`
-	Key          string         `json:"key"`
-	Initiated    time.Time      `json:"initiated"`
-	Meta         metaSnapshot   `json:"meta"`
-	Algorithm    string         `json:"algorithm,omitempty"`
-	ChecksumType string         `json:"checksumType,omitempty"`
-	Parts        []partSnapshot `json:"parts,omitempty"`
+	ID           string            `json:"id"`
+	Key          string            `json:"key"`
+	Initiated    time.Time         `json:"initiated"`
+	Meta         metaSnapshot      `json:"meta"`
+	Tags         map[string]string `json:"tags,omitempty"`
+	Algorithm    string            `json:"algorithm,omitempty"`
+	ChecksumType string            `json:"checksumType,omitempty"`
+	Parts        []partSnapshot    `json:"parts,omitempty"`
 }
 
 type partSnapshot struct {
@@ -111,6 +113,7 @@ func snapshotBucket(b *bucket) bucketSnapshot {
 				Key: o.key, VersionID: o.versionID, DeleteMarker: o.deleteMarker, ETag: o.etag,
 				LastModified: o.lastModified, Meta: snapshotMeta(o.meta), PartSizes: o.partSizes,
 				Checksum: checksumSnapshot{Algorithm: o.checksum.algorithm, Value: o.checksum.value, Type: o.checksum.typ},
+				Tags:     maps.Clone(b.objectTags[tagTarget{key: o.key, versionID: o.versionID}]),
 			}
 			if o.body != nil {
 				ob.Body = &blobRef{File: o.body.name(), Size: o.body.size}
@@ -120,7 +123,7 @@ func snapshotBucket(b *bucket) bucketSnapshot {
 	}
 	for _, u := range b.uploads {
 		us := uploadSnapshot{ID: u.id, Key: u.key, Initiated: u.initiated, Meta: snapshotMeta(u.meta),
-			Algorithm: u.algorithm, ChecksumType: u.checksumType}
+			Tags: maps.Clone(u.tags), Algorithm: u.algorithm, ChecksumType: u.checksumType}
 		for _, p := range u.parts {
 			us.Parts = append(us.Parts, partSnapshot{Number: p.number, Body: blobRef{File: p.body.name(), Size: p.body.size},
 				ETag: p.etag, LastModified: p.lastModified, Checksum: p.checksum})
@@ -197,10 +200,13 @@ func (s *Service) restoreBucket(bs bucketSnapshot, keep map[string]bool) *bucket
 			o.body = body
 		}
 		b.objects[o.key] = append(b.objects[o.key], o)
+		if len(ob.Tags) > 0 {
+			b.objectTags[tagTarget{key: o.key, versionID: o.versionID}] = maps.Clone(ob.Tags)
+		}
 	}
 	for _, us := range bs.Uploads {
 		u := &upload{id: us.ID, key: us.Key, initiated: us.Initiated, meta: restoreMeta(us.Meta),
-			algorithm: us.Algorithm, checksumType: us.ChecksumType, parts: map[int]*part{}}
+			tags: maps.Clone(us.Tags), algorithm: us.Algorithm, checksumType: us.ChecksumType, parts: map[int]*part{}}
 		for _, ps := range us.Parts {
 			body, err := s.blobs.adopt(ps.Body.File, ps.Body.Size)
 			if err != nil {

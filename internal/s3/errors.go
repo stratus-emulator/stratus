@@ -103,6 +103,10 @@ func errInvalidRequest(message string) *awsapi.Error {
 	return s3Error(http.StatusBadRequest, "InvalidRequest", message)
 }
 
+func errInvalidTag(message string) *awsapi.Error {
+	return s3Error(http.StatusBadRequest, "InvalidTag", message)
+}
+
 func errInvalidArgument(message string) *awsapi.Error {
 	return s3Error(http.StatusBadRequest, "InvalidArgument", message)
 }

@@ -53,13 +53,14 @@ REST protocol, path-style and virtual-hosted-style (`<bucket>.localhost`, `<buck
 | `Get`/`PutBucketVersioning` | `DeleteObjects` | `ListParts` |
 | `Get`/`Put`/`DeleteBucketLifecycleConfiguration` | `ListObjects`, `ListObjectsV2` | `ListMultipartUploads` |
 | `Get`/`PutBucketNotificationConfiguration` | `ListObjectVersions` | |
+| | `Get`/`Put`/`DeleteObjectTagging` | |
 
 **Covers:** versioning and delete markers, range and conditional requests, every checksum
 algorithm (CRC32, CRC32C, CRC64NVME, SHA-1, SHA-256) with full-object and composite multipart
 checksums, `aws-chunked` bodies with trailers, presigned URLs and their expiry, lifecycle expiry,
-event notifications to queues.
+object tagging, event notifications to queues.
 
-**Not emulated** (each answers `NotImplemented` with its name): ACLs, policies, CORS, tagging,
+**Not emulated** (each answers `NotImplemented` with its name): ACLs, policies, CORS, bucket tagging,
 encryption configuration, website, logging, ownership controls, public access block, object lock,
 retention and legal hold, replication, `GetObjectAttributes`, `RestoreObject`,
 `SelectObjectContent`.

@@ -14,6 +14,11 @@ const (
 	versioningSuspended = "Suspended"
 )
 
+type tagTarget struct {
+	key       string
+	versionID string
+}
+
 type bucket struct {
 	name          string
 	region        string
@@ -23,8 +28,9 @@ type bucket struct {
 	notifications notificationConfiguration
 	// objects holds every version of every key, oldest first; the last one is
 	// the latest, which may be a delete marker.
-	objects map[string][]*object
-	uploads map[string]*upload
+	objects    map[string][]*object
+	objectTags map[tagTarget]map[string]string
+	uploads    map[string]*upload
 }
 
 // object is one version of a key. Nothing in it changes once it is stored, so
@@ -54,11 +60,12 @@ type objectMeta struct {
 
 func newBucket(name, region string, now time.Time) *bucket {
 	return &bucket{
-		name:      name,
-		region:    region,
-		createdAt: now,
-		objects:   map[string][]*object{},
-		uploads:   map[string]*upload{},
+		name:       name,
+		region:     region,
+		createdAt:  now,
+		objects:    map[string][]*object{},
+		objectTags: map[tagTarget]map[string]string{},
+		uploads:    map[string]*upload{},
 	}
 }
 
@@ -128,6 +135,7 @@ func (b *bucket) add(o *object) {
 	versions := b.objects[o.key]
 	if o.versionID == "" {
 		versions = slices.DeleteFunc(slices.Clone(versions), func(v *object) bool { return v.versionID == "" })
+		delete(b.objectTags, tagTarget{key: o.key, versionID: ""})
 	}
 	b.objects[o.key] = append(versions, o)
 }
@@ -141,14 +149,23 @@ func (b *bucket) removeVersion(key, wireID string) *object {
 		return nil
 	}
 	removed := versions[i]
+	delete(b.objectTags, tagTarget{key: key, versionID: id})
 	b.setVersions(key, slices.Delete(slices.Clone(versions), i, i+1))
 	return removed
 }
 
 func (b *bucket) setVersions(key string, versions []*object) {
 	if len(versions) == 0 {
+		for _, v := range b.objects[key] {
+			delete(b.objectTags, tagTarget{key: key, versionID: v.versionID})
+		}
 		delete(b.objects, key)
 		return
+	}
+	for _, old := range b.objects[key] {
+		if !slices.Contains(versions, old) {
+			delete(b.objectTags, tagTarget{key: key, versionID: old.versionID})
+		}
 	}
 	b.objects[key] = versions
 }
@@ -158,6 +175,7 @@ func (b *bucket) setVersions(key string, versions []*object) {
 func (b *bucket) deleteKey(key string, now time.Time) *object {
 	if b.versioning == "" {
 		delete(b.objects, key)
+		delete(b.objectTags, tagTarget{key: key, versionID: ""})
 		return nil
 	}
 	marker := &object{key: key, versionID: b.newVersionID(), deleteMarker: true, lastModified: now}

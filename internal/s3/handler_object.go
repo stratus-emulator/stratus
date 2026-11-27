@@ -18,6 +18,14 @@ func (s *Service) putObject(w http.ResponseWriter, r *http.Request, bucketName, 
 	if _, err := withBucket(s, bucketName, func(*bucket) bool { return true }); err != nil {
 		return err
 	}
+	var tags map[string]string
+	if rawTags := r.Header.Get("x-amz-tagging"); rawTags != "" {
+		var err error
+		tags, err = parseTaggingHeader(rawTags, maxObjectTags)
+		if err != nil {
+			return err
+		}
+	}
 	p, err := readPayload(r, maxObjectSize)
 	if err != nil {
 		return err
@@ -31,7 +39,9 @@ func (s *Service) putObject(w http.ResponseWriter, r *http.Request, bucketName, 
 		return err
 	}
 	obj := &object{key: key, body: body, etag: etagOf(p.data), meta: metaFromHeaders(r.Header), checksum: sum}
-	stored, err := s.store(bucketName, obj, cond, eventPut, sourceOf(w, r))
+	stored, err := s.commitWithTags(bucketName, obj, cond, eventPut, sourceOf(w, r),
+		func(*bucket) error { return nil },
+		func(*bucket) map[string]string { return tags })
 	if err != nil {
 		return err
 	}
@@ -109,6 +119,11 @@ func (s *Service) getObject(w http.ResponseWriter, r *http.Request, bucketName, 
 		return err
 	}
 	writeObjectHeaders(h, o, r.Header.Get("x-amz-checksum-mode") == "ENABLED" && !partial)
+	if tagCount, _ := withBucket(s, bucketName, func(b *bucket) int {
+		return len(b.objectTags[tagTarget{key: o.key, versionID: o.versionID}])
+	}); tagCount > 0 {
+		h.Set("x-amz-tagging-count", strconv.Itoa(tagCount))
+	}
 	applyOverrides(h, q)
 	off, n, status := int64(0), o.size(), http.StatusOK
 	if partial {

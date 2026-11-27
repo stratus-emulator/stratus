@@ -220,7 +220,7 @@ func (b *bucket) expireKey(r LifecycleRule, key string, now time.Time) int {
 		b.setVersions(key, kept)
 	}
 	if versions := b.objects[key]; r.ExpiredObjectDeleteMarker && len(versions) == 1 && versions[0].deleteMarker {
-		delete(b.objects, key)
+		b.setVersions(key, nil)
 		n++
 	}
 	return n
