@@ -235,3 +235,29 @@ func TestFormatBytes(t *testing.T) {
 		}
 	}
 }
+
+func TestUIStreamDetailShowsEncryption(t *testing.T) {
+	_, ts := newUIServer(t)
+	code, page := get(t, ts.URL+"/_stratus/ui/kinesis/events")
+	if code != http.StatusOK || !strings.Contains(page, "<dt>Encryption</dt><dd>None</dd>") {
+		t.Fatalf("initial stream detail = %d, without Encryption None", code)
+	}
+	req, err := http.NewRequest(http.MethodPost, ts.URL+"/", strings.NewReader(`{"StreamName":"events","EncryptionType":"KMS","KeyId":"alias/events-key"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/x-amz-json-1.1")
+	req.Header.Set("X-Amz-Target", "Kinesis_20131202.StartStreamEncryption")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("StartStreamEncryption = %d, want 200", resp.StatusCode)
+	}
+	code, page = get(t, ts.URL+"/_stratus/ui/kinesis/events")
+	if code != http.StatusOK || !strings.Contains(page, "<dt>Encryption</dt><dd>KMS · <code>alias/events-key</code></dd>") {
+		t.Fatalf("encrypted stream detail = %d, without KMS encryption row", code)
+	}
+}

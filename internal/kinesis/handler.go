@@ -34,6 +34,8 @@ var operations = map[string]operation{
 	"GetRecords":                    op((*Service).getRecordsOp),
 	"IncreaseStreamRetentionPeriod": op((*Service).increaseRetention),
 	"DecreaseStreamRetentionPeriod": op((*Service).decreaseRetention),
+	"StartStreamEncryption":         op((*Service).startStreamEncryption),
+	"StopStreamEncryption":          op((*Service).stopStreamEncryption),
 	"AddTagsToStream":               op((*Service).addTags),
 	"RemoveTagsFromStream":          op((*Service).removeTags),
 	"ListTagsForStream":             op((*Service).listTags),

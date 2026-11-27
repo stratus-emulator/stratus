@@ -3,12 +3,14 @@ package kinesis
 import (
 	"encoding/base64"
 	"sort"
+	"unicode/utf8"
 )
 
 const (
-	defaultDescribeLimit = 100
-	maxListLimit         = 10000
-	maxTagsPerPage       = 50
+	defaultDescribeLimit  = 100
+	maxListLimit          = 10000
+	maxTagsPerPage        = 50
+	maxEncryptionKeyIDLen = 2048
 )
 
 type modeDetails struct {
@@ -82,7 +84,7 @@ func (s *Service) describeStream(in describeStreamInput) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return map[string]any{"StreamDescription": map[string]any{
+	description := map[string]any{
 		"StreamName":              st.name,
 		"StreamARN":               st.arn,
 		"StreamStatus":            "ACTIVE",
@@ -92,8 +94,9 @@ func (s *Service) describeStream(in describeStreamInput) (any, error) {
 		"RetentionPeriodHours":    st.retentionHours,
 		"StreamCreationTimestamp": epoch(st.created),
 		"EnhancedMonitoring":      []monitoring{{ShardLevelMetrics: []string{}}},
-		"EncryptionType":          "NONE",
-	}}, nil
+	}
+	applyEncryptionFields(description, st)
+	return map[string]any{"StreamDescription": description}, nil
 }
 
 func (s *Service) describeStreamSummary(in streamRef) (any, error) {
@@ -106,7 +109,7 @@ func (s *Service) describeStreamSummary(in streamRef) (any, error) {
 	if st.deleted {
 		return nil, s.gone(st)
 	}
-	return map[string]any{"StreamDescriptionSummary": map[string]any{
+	summary := map[string]any{
 		"StreamName":              st.name,
 		"StreamARN":               st.arn,
 		"StreamStatus":            "ACTIVE",
@@ -114,10 +117,73 @@ func (s *Service) describeStreamSummary(in streamRef) (any, error) {
 		"RetentionPeriodHours":    st.retentionHours,
 		"StreamCreationTimestamp": epoch(st.created),
 		"EnhancedMonitoring":      []monitoring{{ShardLevelMetrics: []string{}}},
-		"EncryptionType":          "NONE",
 		"OpenShardCount":          len(st.shards),
 		"ConsumerCount":           0,
-	}}, nil
+	}
+	applyEncryptionFields(summary, st)
+	return map[string]any{"StreamDescriptionSummary": summary}, nil
+}
+
+func applyEncryptionFields(dst map[string]any, st *stream) {
+	encType := st.encryptionType
+	if encType == "" {
+		encType = "NONE"
+	}
+	dst["EncryptionType"] = encType
+	if encType == "KMS" && st.keyID != "" {
+		dst["KeyId"] = st.keyID
+	}
+}
+
+type streamEncryptionInput struct {
+	streamRef
+	EncryptionType string
+	KeyId          string
+}
+
+func validateEncryptionInput(in streamEncryptionInput) error {
+	switch in.EncryptionType {
+	case "":
+		return errConstraint("encryptionType", "Member must not be null")
+	case "NONE":
+		return errInvalidArgument("EncryptionType must be KMS.")
+	case "KMS":
+	default:
+		return errConstraint("encryptionType", "Member must satisfy enum value set: [NONE, KMS]")
+	}
+	if in.KeyId == "" {
+		return errConstraint("keyId", "Member must not be null")
+	}
+	if utf8.RuneCountInString(in.KeyId) > maxEncryptionKeyIDLen {
+		return errConstraint("keyId", "Member must have length less than or equal to 2048")
+	}
+	return nil
+}
+
+func (s *Service) updateStreamEncryption(in streamEncryptionInput, encryptionType, keyID string) (any, error) {
+	if err := validateEncryptionInput(in); err != nil {
+		return nil, err
+	}
+	st, err := s.resolve(in.streamRef)
+	if err != nil {
+		return nil, err
+	}
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	if st.deleted {
+		return nil, s.gone(st)
+	}
+	st.encryptionType = encryptionType
+	st.keyID = keyID
+	return empty{}, nil
+}
+
+func (s *Service) startStreamEncryption(in streamEncryptionInput) (any, error) {
+	return s.updateStreamEncryption(in, "KMS", in.KeyId)
+}
+
+func (s *Service) stopStreamEncryption(in streamEncryptionInput) (any, error) {
+	return s.updateStreamEncryption(in, "", "")
 }
 
 type listStreamsInput struct {

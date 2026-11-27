@@ -54,6 +54,8 @@ type stream struct {
 	mode    string
 
 	retentionHours int
+	encryptionType string
+	keyID          string
 	tags           map[string]string
 	shards         []*shard
 	// firstSeq is the counter at creation, the time the stream was created in

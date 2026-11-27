@@ -48,6 +48,7 @@ function editing() {
 {{end}}{{end}}
 {{if eq .Kind "stream"}}{{with .Stream}}
   <dl><div><dt>Capacity mode</dt><dd>{{enum .Mode}}</dd></div><div><dt>Retention</dt><dd>{{retention .RetentionHours}}</dd></div>
+  <div><dt>Encryption</dt><dd>{{if eq .EncryptionType "KMS"}}KMS · <code>{{.KeyID}}</code>{{else}}None{{end}}</dd></div>
   <div><dt>Shards</dt><dd>{{len .Shards}}</dd></div><div><dt>Created</dt><dd>{{time .Created}}</dd></div>
   <div><dt>ARN</dt><dd>{{.ARN}}</dd></div></dl>
   <div class="scroll"><table><tr><th>Shard</th><th class="n">Records</th><th>Hash key range</th></tr>

@@ -38,6 +38,8 @@ type StreamInfo struct {
 	Mode           string
 	Created        time.Time
 	RetentionHours int
+	EncryptionType string
+	KeyID          string
 	Shards         []ShardInfo
 }
 
@@ -58,7 +60,14 @@ func (s *Service) Stream(name string) (StreamInfo, error) {
 	}
 	st.mu.RLock()
 	defer st.mu.RUnlock()
-	info := StreamInfo{ARN: st.arn, Mode: st.mode, Created: st.created, RetentionHours: st.retentionHours}
+	info := StreamInfo{
+		ARN:            st.arn,
+		Mode:           st.mode,
+		Created:        st.created,
+		RetentionHours: st.retentionHours,
+		EncryptionType: st.encryptionType,
+		KeyID:          st.keyID,
+	}
 	for _, sh := range st.shards {
 		info.Shards = append(info.Shards, ShardInfo{
 			ID: sh.id, StartingHashKey: sh.start.String(), EndingHashKey: sh.end.String(), Records: len(sh.records),

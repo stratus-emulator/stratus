@@ -603,7 +603,7 @@ func TestUnsupportedAndCBOR(t *testing.T) {
 	e := newEnv(t)
 	const json11 = "application/x-amz-json-1.1"
 
-	for _, op := range []string{"SubscribeToShard", "UpdateShardCount", "RegisterStreamConsumer", "StartStreamEncryption"} {
+	for _, op := range []string{"SubscribeToShard", "UpdateShardCount", "RegisterStreamConsumer"} {
 		status, out := post(t, e.url, json11, "Kinesis_20131202."+op, "{}")
 		if status != http.StatusBadRequest || !strings.Contains(out["message"], op) || out["__type"] != "UnsupportedOperation" {
 			t.Errorf("%s: %d %v", op, status, out)

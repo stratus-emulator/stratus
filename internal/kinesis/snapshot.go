@@ -23,6 +23,8 @@ type streamSnapshot struct {
 	Created        time.Time         `json:"created"`
 	Mode           string            `json:"mode"`
 	RetentionHours int               `json:"retentionHours"`
+	EncryptionType string            `json:"encryptionType,omitempty"`
+	KeyID          string            `json:"keyId,omitempty"`
 	Tags           map[string]string `json:"tags,omitempty"`
 	// FirstSeq and LastSeq keep the stream's sequence numbers going where they
 	// stopped, so a consumer's checkpoint stays valid across a restart.
@@ -71,6 +73,7 @@ func snapshotStream(st *stream) streamSnapshot {
 	defer st.mu.RUnlock()
 	ss := streamSnapshot{
 		Name: st.name, Created: st.created, Mode: st.mode, RetentionHours: st.retentionHours,
+		EncryptionType: st.encryptionType, KeyID: st.keyID,
 		Tags: maps.Clone(st.tags), FirstSeq: st.firstSeq, LastSeq: st.lastSeq,
 	}
 	for _, sh := range st.shards {
@@ -123,6 +126,7 @@ func (s *Service) restoreStream(ss streamSnapshot) (*stream, error) {
 	st := &stream{
 		name: ss.Name, arn: s.identity.ARN("kinesis", "stream/"+ss.Name), gen: s.nextGen,
 		created: ss.Created, mode: ss.Mode, retentionHours: ss.RetentionHours,
+		encryptionType: ss.EncryptionType, keyID: ss.KeyID,
 		tags: maps.Clone(ss.Tags), firstSeq: ss.FirstSeq, lastSeq: ss.LastSeq,
 	}
 	for _, shs := range ss.Shards {

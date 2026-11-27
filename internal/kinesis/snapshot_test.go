@@ -11,6 +11,8 @@ func TestASnapshotKeepsStreamsRecordsAndCheckpoints(t *testing.T) {
 	s, clk := newTestService(t, 2)
 	st := mustStream(t, s)
 	st.retentionHours = 48
+	st.encryptionType = "KMS"
+	st.keyID = "alias/stratus-test"
 	st.tags = map[string]string{"team": "mail"}
 	var checkpoint uint64
 	for _, d := range []string{"a", "b", "c"} {
@@ -28,8 +30,8 @@ func TestASnapshotKeepsStreamsRecordsAndCheckpoints(t *testing.T) {
 	}
 
 	got := mustStream(t, next)
-	if len(got.shards) != 2 || got.retentionHours != 48 || got.tags["team"] != "mail" || !got.created.Equal(st.created) {
-		t.Fatalf("restored stream: %d shards, %dh retention, tags %v, created %v", len(got.shards), got.retentionHours, got.tags, got.created)
+	if len(got.shards) != 2 || got.retentionHours != 48 || got.encryptionType != "KMS" || got.keyID != "alias/stratus-test" || got.tags["team"] != "mail" || !got.created.Equal(st.created) {
+		t.Fatalf("restored stream: %d shards, %dh retention, enc %q/%q, tags %v, created %v", len(got.shards), got.retentionHours, got.encryptionType, got.keyID, got.tags, got.created)
 	}
 	// A consumer's checkpoint of the stream is still valid: it resumes after it.
 	mustPut(t, next, "k", "d")
@@ -56,5 +58,36 @@ func TestKinesisRestoreRefusesAnotherFormat(t *testing.T) {
 	s, _ := newTestService(t, 1)
 	if err := s.Restore([]byte(`{"format":99}`), nil); err == nil {
 		t.Fatal("Restore of format 99 succeeded")
+	}
+}
+
+func TestStreamEncryptionValidationAndCanonicalStop(t *testing.T) {
+	s, _ := newTestService(t, 1)
+	st := mustStream(t, s)
+
+	// Missing EncryptionType returns ValidationException (errConstraint).
+	if _, err := s.startStreamEncryption(streamEncryptionInput{
+		streamRef: streamRef{StreamName: st.name},
+		KeyId:     "alias/test",
+	}); code(err) != "ValidationException" {
+		t.Fatalf("missing EncryptionType code = %q, want ValidationException", code(err))
+	}
+
+	if _, err := s.startStreamEncryption(streamEncryptionInput{
+		streamRef:      streamRef{StreamName: st.name},
+		EncryptionType: "KMS",
+		KeyId:          "alias/test",
+	}); err != nil {
+		t.Fatalf("startStreamEncryption: %v", err)
+	}
+	if _, err := s.stopStreamEncryption(streamEncryptionInput{
+		streamRef:      streamRef{StreamName: st.name},
+		EncryptionType: "KMS",
+		KeyId:          "alias/test",
+	}); err != nil {
+		t.Fatalf("stopStreamEncryption: %v", err)
+	}
+	if st.encryptionType != "" || st.keyID != "" {
+		t.Fatalf("after Stop = (%q, %q), want empty canonical state", st.encryptionType, st.keyID)
 	}
 }
