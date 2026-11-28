@@ -12,6 +12,7 @@ var listElements = map[string]string{
 	"QueueUrls": "QueueUrl",
 	"queueUrls": "QueueUrl",
 	"Failed":    "BatchResultErrorEntry",
+	"Results":   "ListMessageMoveTasksResultEntry",
 }
 
 // pairElements are the JSON maps that the XML form writes as a list of

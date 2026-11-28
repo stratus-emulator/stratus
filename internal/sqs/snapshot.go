@@ -18,14 +18,25 @@ type snapshot struct {
 }
 
 type queueSnapshot struct {
-	Name         string            `json:"name"`
-	CreatedAt    time.Time         `json:"createdAt"`
-	ModifiedAt   time.Time         `json:"modifiedAt"`
-	Config       configSnapshot    `json:"config"`
-	Messages     []messageSnapshot `json:"messages"`
-	Tags         map[string]string `json:"tags,omitempty"`
-	FIFOSequence uint64            `json:"fifoSequence,omitempty"`
-	Dedup        []dedupSnapshot   `json:"dedup,omitempty"`
+	Name         string             `json:"name"`
+	CreatedAt    time.Time          `json:"createdAt"`
+	ModifiedAt   time.Time          `json:"modifiedAt"`
+	Config       configSnapshot     `json:"config"`
+	Messages     []messageSnapshot  `json:"messages"`
+	Tags         map[string]string  `json:"tags,omitempty"`
+	FIFOSequence uint64             `json:"fifoSequence,omitempty"`
+	Dedup        []dedupSnapshot    `json:"dedup,omitempty"`
+	MoveTasks    []moveTaskSnapshot `json:"moveTasks,omitempty"`
+}
+
+type moveTaskSnapshot struct {
+	TaskHandle     string    `json:"taskHandle"`
+	Status         string    `json:"status"`
+	SourceARN      string    `json:"sourceArn"`
+	DestinationARN string    `json:"destinationArn,omitempty"`
+	MaxPerSecond   *int      `json:"maxPerSecond,omitempty"`
+	Moved          int64     `json:"moved"`
+	StartedAt      time.Time `json:"startedAt"`
 }
 
 type configSnapshot struct {
@@ -114,6 +125,17 @@ func snapshotQueue(q *queue) queueSnapshot {
 			qs.Dedup = append(qs.Dedup, dedupSnapshot{Key: r.key, Output: e.out, Expires: e.expires})
 		}
 	}
+	for _, t := range q.moveTasks {
+		qs.MoveTasks = append(qs.MoveTasks, moveTaskSnapshot{
+			TaskHandle:     t.taskHandle,
+			Status:         t.status,
+			SourceARN:      t.sourceARN,
+			DestinationARN: t.destinationARN,
+			MaxPerSecond:   cloneIntPtr(t.maxPerSecond),
+			Moved:          t.moved,
+			StartedAt:      t.startedAt,
+		})
+	}
 	return qs
 }
 
@@ -184,5 +206,24 @@ func restoreQueue(qs queueSnapshot) *queue {
 		q.fifo.seen[d.Key] = dedupEntry{out: d.Output, expires: d.Expires}
 		q.fifo.order = append(q.fifo.order, dedupRecord{key: d.Key, expires: d.Expires})
 	}
+	for _, mt := range qs.MoveTasks {
+		q.moveTasks = append(q.moveTasks, moveTask{
+			taskHandle:     mt.TaskHandle,
+			status:         mt.Status,
+			sourceARN:      mt.SourceARN,
+			destinationARN: mt.DestinationARN,
+			maxPerSecond:   cloneIntPtr(mt.MaxPerSecond),
+			moved:          mt.Moved,
+			startedAt:      mt.StartedAt,
+		})
+	}
 	return q
+}
+
+func cloneIntPtr(p *int) *int {
+	if p == nil {
+		return nil
+	}
+	v := *p
+	return &v
 }

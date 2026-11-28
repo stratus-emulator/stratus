@@ -102,3 +102,30 @@ func errBatchTooLong(size int) *awsapi.Error {
 	return batchError("BatchRequestTooLong", "Batch requests cannot be longer than "+
 		strconv.Itoa(maxBatchBytes)+" bytes. You have sent "+strconv.Itoa(size)+" bytes.")
 }
+
+func errResourceNotFound(message string) *awsapi.Error {
+	return &awsapi.Error{
+		Status:    http.StatusNotFound,
+		Code:      "ResourceNotFoundException",
+		QueryCode: "ResourceNotFoundException",
+		Message:   message,
+	}
+}
+
+func errInvalidAddress(message string) *awsapi.Error {
+	return &awsapi.Error{
+		Status:    http.StatusNotFound,
+		Code:      "InvalidAddress",
+		QueryCode: "InvalidAddress",
+		Message:   message,
+	}
+}
+
+func errUnsupportedOperation(message string) *awsapi.Error {
+	return &awsapi.Error{
+		Status:    http.StatusBadRequest,
+		Code:      "UnsupportedOperation",
+		QueryCode: "AWS.SimpleQueueService.UnsupportedOperation",
+		Message:   message,
+	}
+}

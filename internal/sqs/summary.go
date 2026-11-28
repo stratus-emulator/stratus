@@ -105,24 +105,42 @@ func (s *Service) Redrive(dlq, source string) (int, error) {
 	if to.cfg.redrive == nil || to.cfg.redrive.target != dlq {
 		return 0, errInvalidParameter("Queue " + source + " does not send its failed messages to " + dlq + ".")
 	}
-	now := s.clock.Now()
-	moved := 0
+	return s.redriveMessagesLocked(from, func(*message) (*queue, error) { return to, nil }, s.clock.Now())
+}
+
+// redriveMessagesLocked moves every message of from to the queue chosen by
+// resolveDest, clearing delivery state so each arrives as a fresh message.
+// Destinations are resolved before any queue is mutated so errors are atomic.
+func (s *Service) redriveMessagesLocked(from *queue, resolveDest func(*message) (*queue, error), now time.Time) (int, error) {
+	type move struct {
+		msg *message
+		to  *queue
+	}
+	var moves []move
 	for _, m := range from.messages {
 		if m.deleted {
 			continue
 		}
-		c := *m
+		to, err := resolveDest(m)
+		if err != nil {
+			return 0, err
+		}
+		moves = append(moves, move{msg: m, to: to})
+	}
+	woken := make(map[*queue]bool)
+	for _, mv := range moves {
+		c := *mv.msg
 		c.receipt, c.deadLetterSource, c.receiveCount = "", "", 0
 		c.firstReceivedAt, c.visibleAt, c.deleted = time.Time{}, now, false
-		if to.cfg.fifo {
-			c.sequence = to.fifo.nextSequence()
+		if mv.to.cfg.fifo {
+			c.sequence = mv.to.fifo.nextSequence()
 		}
-		to.append(&c)
-		moved++
+		mv.to.append(&c)
+		woken[mv.to] = true
 	}
 	from.clearMessages()
-	if moved > 0 {
-		wake(to)
+	for q := range woken {
+		wake(q)
 	}
-	return moved, nil
+	return len(moves), nil
 }

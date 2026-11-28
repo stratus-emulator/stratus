@@ -35,7 +35,7 @@ func isQueryRequest(r *http.Request) bool {
 // intMembers are the request members that are numbers in the JSON form.
 var intMembers = map[string]bool{
 	"DelaySeconds": true, "VisibilityTimeout": true, "MaxNumberOfMessages": true,
-	"WaitTimeSeconds": true, "MaxResults": true,
+	"WaitTimeSeconds": true, "MaxResults": true, "MaxNumberOfMessagesPerSecond": true,
 }
 
 // pairMembers are the lists of name/value pairs the query protocol uses for the

@@ -38,7 +38,7 @@ all other state in memory.
 
 | Service | Covers | Not emulated |
 |---|---|---|
-| **SQS** | standard and FIFO queues, delays, visibility timeouts, long polling, message attributes, dead-letter queues, batch operations, retention, tags; JSON and query protocols | message move tasks (redrive) |
+| **SQS** | standard and FIFO queues, delays, visibility timeouts, long polling, message attributes, dead-letter queues, message move tasks, batch operations, retention, tags; JSON and query protocols | permissions (`AddPermission`, `RemovePermission`) |
 | **Kinesis** | streams and shards, `PutRecord`/`PutRecords`, every shard iterator type with expiry (a checkpoint of an earlier stream of the name, deleted or from before a restart, is refused as `InvalidArgumentException`), `GetRecords` with `MillisBehindLatest`, retention, tags | enhanced fan-out (`SubscribeToShard`), shard split and merge, encryption |
 | **S3** | objects, multipart uploads, versioning, range and conditional requests, all checksum algorithms, `aws-chunked` bodies, presigned URLs, lifecycle expiry, bucket tagging, event notifications to queues | ACLs, policies, object tagging, object lock, replication |
 | **DynamoDB** | tables, items, `Query`/`Scan`, the full expression language, local and global secondary indexes, batches, transactions, TTL | streams, `UpdateTable` |

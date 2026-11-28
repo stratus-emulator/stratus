@@ -13,16 +13,16 @@ reporting.
 
 JSON protocol (current SDKs) and query protocol (older SDKs and tools).
 
-`ChangeMessageVisibility` · `ChangeMessageVisibilityBatch` · `CreateQueue` · `DeleteMessage` ·
-`DeleteMessageBatch` · `DeleteQueue` · `GetQueueAttributes` · `GetQueueUrl` ·
-`ListDeadLetterSourceQueues` · `ListQueues` · `ListQueueTags` · `PurgeQueue` · `ReceiveMessage` ·
-`SendMessage` · `SendMessageBatch` · `SetQueueAttributes` · `TagQueue` · `UntagQueue`
+`CancelMessageMoveTask` · `ChangeMessageVisibility` · `ChangeMessageVisibilityBatch` ·
+`CreateQueue` · `DeleteMessage` · `DeleteMessageBatch` · `DeleteQueue` · `GetQueueAttributes` ·
+`GetQueueUrl` · `ListDeadLetterSourceQueues` · `ListMessageMoveTasks` · `ListQueues` ·
+`ListQueueTags` · `PurgeQueue` · `ReceiveMessage` · `SendMessage` · `SendMessageBatch` ·
+`SetQueueAttributes` · `StartMessageMoveTask` · `TagQueue` · `UntagQueue`
 
 **Covers:** standard and FIFO queues, delays, visibility timeouts, long polling, message and system
-attributes, dead-letter queues, batches, retention, tags.
+attributes, dead-letter queues, message move tasks, batches, retention, tags.
 
-**Not emulated:** message move tasks (`StartMessageMoveTask`; the [web panel](../guides/web-panel.md)
-can redrive a DLQ), permissions (`AddPermission`).
+**Not emulated:** permissions (`AddPermission`, `RemovePermission`).
 
 ## Kinesis
 

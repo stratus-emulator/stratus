@@ -45,6 +45,7 @@ type queue struct {
 	oldestSentAt time.Time
 	tags         map[string]string
 	fifo         fifoState
+	moveTasks    []moveTask // most recent message move tasks, oldest first (up to maxMoveTaskHistory)
 	// changed is closed, and replaced, whenever a waiting receiver should look
 	// at the queue again.
 	changed chan struct{}

@@ -105,3 +105,33 @@ func TestRestoreRefusesAnotherFormat(t *testing.T) {
 		t.Fatalf("Restore of format 99: %v, want a plain error", err)
 	}
 }
+
+func TestSnapshotKeepsMoveTasks(t *testing.T) {
+	s, _ := newService(t)
+	mustCreate(t, s, "dlq", nil)
+	mustCreate(t, s, "jobs", map[string]string{
+		"RedrivePolicy": `{"deadLetterTargetArn":"` + s.arn("dlq") + `","maxReceiveCount":"1"}`,
+	})
+	mustSend(t, s, "dlq", "stuck")
+
+	rate := 50
+	handle, err := s.StartMessageMoveTask(s.arn("dlq"), s.arn("jobs"), &rate)
+	if err != nil {
+		t.Fatalf("StartMessageMoveTask: %v", err)
+	}
+
+	next := restored(t, s)
+
+	tasks, err := next.ListMessageMoveTasks(s.arn("dlq"), nil)
+	if err != nil || len(tasks) != 1 {
+		t.Fatalf("ListMessageMoveTasks after Restore = %+v, %v", tasks, err)
+	}
+	if tasks[0].Status != "COMPLETED" ||
+		tasks[0].DestinationArn != s.arn("jobs") ||
+		tasks[0].ApproximateNumberOfMessagesMoved != 1 ||
+		tasks[0].MaxNumberOfMessagesPerSecond == nil || *tasks[0].MaxNumberOfMessagesPerSecond != 50 {
+		t.Fatalf("restored task = %+v", tasks[0])
+	}
+	_, err = next.CancelMessageMoveTask(handle)
+	wantCode(t, err, "ResourceNotFoundException")
+}

@@ -46,6 +46,9 @@ var operations = map[string]operation{
 	"TagQueue":                     op((*Service).tagQueue),
 	"UntagQueue":                   op((*Service).untagQueue),
 	"ListQueueTags":                op((*Service).listQueueTags),
+	"StartMessageMoveTask":         op((*Service).startMessageMoveTask),
+	"ListMessageMoveTasks":         op((*Service).listMessageMoveTasks),
+	"CancelMessageMoveTask":        op((*Service).cancelMessageMoveTask),
 }
 
 // op adapts a typed operation: it decodes the request body into In.
