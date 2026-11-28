@@ -58,7 +58,8 @@ function editing() {
   <dl><div><dt>Versioning</dt><dd>{{if .Versioning}}{{.Versioning}}{{else}}Off{{end}}</dd></div>
   <div><dt>Region</dt><dd>{{.Region}}</dd></div><div><dt>Created</dt><dd>{{time .Created}}</dd></div>
   <div><dt>Lifecycle rules</dt><dd>{{range .Lifecycle}}<div>{{if .Prefix}}<code>{{.Prefix}}</code>{{else}}Every key{{end}}{{if .ExpirationDays}}: expires after {{.ExpirationDays}} days{{end}}{{if .NoncurrentDays}}; old versions after {{.NoncurrentDays}} days{{end}}{{if .Disabled}} (disabled){{end}}</div>{{else}}None{{end}}</dd></div>
-  <div><dt>Event notifications</dt><dd>{{range .Notifications}}<div>{{range $i, $e := .Events}}{{if $i}}, {{end}}{{$e}}{{end}} → <code>{{.QueueARN}}</code>{{if .Prefix}} for keys starting <code>{{.Prefix}}</code>{{end}}{{if .Suffix}} ending <code>{{.Suffix}}</code>{{end}}</div>{{else}}None{{end}}</dd></div></dl>
+  <div><dt>Event notifications</dt><dd>{{range .Notifications}}<div>{{range $i, $e := .Events}}{{if $i}}, {{end}}{{$e}}{{end}} → <code>{{.QueueARN}}</code>{{if .Prefix}} for keys starting <code>{{.Prefix}}</code>{{end}}{{if .Suffix}} ending <code>{{.Suffix}}</code>{{end}}</div>{{else}}None{{end}}</dd></div>
+  <div><dt>Tags</dt><dd>{{range $k, $v := .Tags}}<div><code>{{$k}}</code> = <code>{{$v}}</code></div>{{else}}None{{end}}</dd></div></dl>
 {{end}}{{end}}
 {{if eq .Kind "table"}}{{with .Table}}
   <dl><div><dt>Partition key</dt><dd><code>{{.Spec.PartitionKey.Name}}</code> · {{keyType .Spec.PartitionKey.Type}}</dd></div>

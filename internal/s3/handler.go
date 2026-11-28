@@ -114,13 +114,18 @@ func (s *Service) routeBucket(w http.ResponseWriter, r *http.Request, name strin
 			return s.putBucketLifecycle(w, r, name)
 		case q.Has("notification"):
 			return s.putBucketNotification(w, r, name)
+		case q.Has("tagging"):
+			return s.putBucketTagging(w, r, name)
 		}
 		return s.createBucket(w, r, name)
 	case http.MethodHead:
 		return s.headBucket(w, name)
 	case http.MethodDelete:
-		if q.Has("lifecycle") {
+		switch {
+		case q.Has("lifecycle"):
 			return s.deleteBucketLifecycle(w, name)
+		case q.Has("tagging"):
+			return s.deleteBucketTagging(w, name)
 		}
 		return s.deleteBucket(w, name)
 	case http.MethodPost:
@@ -141,6 +146,8 @@ func (s *Service) routeBucketGet(w http.ResponseWriter, r *http.Request, name st
 		return s.getBucketLifecycle(w, name)
 	case q.Has("notification"):
 		return s.getBucketNotification(w, name)
+	case q.Has("tagging"):
+		return s.getBucketTagging(w, name)
 	case q.Has("uploads"):
 		return s.listMultipartUploads(w, name, q)
 	case q.Has("versions"):
@@ -193,7 +200,7 @@ func (s *Service) routeObject(w http.ResponseWriter, r *http.Request, bucketName
 var (
 	bucketSubresources = map[string]string{
 		"acl": "BucketAcl", "policy": "BucketPolicy", "policyStatus": "BucketPolicyStatus", "cors": "BucketCors",
-		"tagging": "BucketTagging", "encryption": "BucketEncryption", "website": "BucketWebsite",
+		"encryption": "BucketEncryption", "website": "BucketWebsite",
 		"logging": "BucketLogging", "ownershipControls": "BucketOwnershipControls",
 		"publicAccessBlock": "PublicAccessBlock", "object-lock": "ObjectLockConfiguration",
 		"replication": "BucketReplication", "accelerate": "BucketAccelerateConfiguration",

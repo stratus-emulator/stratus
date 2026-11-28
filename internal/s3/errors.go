@@ -42,6 +42,14 @@ func errNoSuchLifecycle() *awsapi.Error {
 	return s3Error(http.StatusNotFound, "NoSuchLifecycleConfiguration", "The lifecycle configuration does not exist")
 }
 
+func errNoSuchTagSet() *awsapi.Error {
+	return s3Error(http.StatusNotFound, "NoSuchTagSet", "The TagSet does not exist")
+}
+
+func errInvalidTag(message string) *awsapi.Error {
+	return s3Error(http.StatusBadRequest, "InvalidTag", message)
+}
+
 func errBucketExists() *awsapi.Error {
 	return s3Error(http.StatusConflict, "BucketAlreadyOwnedByYou",
 		"Your previous request to create the named bucket succeeded and you already own it.")

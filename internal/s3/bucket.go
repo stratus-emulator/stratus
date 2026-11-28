@@ -21,6 +21,7 @@ type bucket struct {
 	versioning    string
 	lifecycle     []LifecycleRule // nil: no lifecycle configuration
 	notifications notificationConfiguration
+	tags          map[string]string // nil: no tag set
 	// objects holds every version of every key, oldest first; the last one is
 	// the latest, which may be a delete marker.
 	objects map[string][]*object

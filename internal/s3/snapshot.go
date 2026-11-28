@@ -29,6 +29,7 @@ type bucketSnapshot struct {
 	Versioning    string                    `json:"versioning,omitempty"`
 	Lifecycle     []LifecycleRule           `json:"lifecycle,omitempty"`
 	Notifications notificationConfiguration `json:"notifications"`
+	Tags          map[string]string         `json:"tags,omitempty"`
 	Objects       []objectSnapshot          `json:"objects"` // every version of every key, oldest first per key
 	Uploads       []uploadSnapshot          `json:"uploads,omitempty"`
 }
@@ -103,7 +104,7 @@ func (s *Service) Snapshot(keep func(name string) bool) ([]byte, error) {
 func snapshotBucket(b *bucket) bucketSnapshot {
 	bs := bucketSnapshot{
 		Name: b.name, Region: b.region, CreatedAt: b.createdAt, Versioning: b.versioning,
-		Lifecycle: b.lifecycle, Notifications: b.notifications,
+		Lifecycle: b.lifecycle, Notifications: b.notifications, Tags: maps.Clone(b.tags),
 	}
 	for _, key := range b.sortedKeys() {
 		for _, o := range b.objects[key] {
@@ -179,7 +180,7 @@ func (s *Service) Restore(data []byte, keep func(name string) bool) error {
 
 func (s *Service) restoreBucket(bs bucketSnapshot, keep map[string]bool) *bucket {
 	b := newBucket(bs.Name, bs.Region, bs.CreatedAt)
-	b.versioning, b.lifecycle, b.notifications = bs.Versioning, bs.Lifecycle, bs.Notifications
+	b.versioning, b.lifecycle, b.notifications, b.tags = bs.Versioning, bs.Lifecycle, bs.Notifications, maps.Clone(bs.Tags)
 	for _, ob := range bs.Objects {
 		o := &object{
 			key: ob.Key, versionID: ob.VersionID, deleteMarker: ob.DeleteMarker, etag: ob.ETag,

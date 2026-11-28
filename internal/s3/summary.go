@@ -2,6 +2,7 @@ package s3
 
 import (
 	"io"
+	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -60,6 +61,7 @@ type BucketInfo struct {
 	Versioning    string // empty: never enabled
 	Lifecycle     []LifecycleRule
 	Notifications []NotificationView
+	Tags          map[string]string
 }
 
 // NotificationView is one queue a bucket tells about object events.
@@ -77,7 +79,13 @@ func (s *Service) Bucket(name string) (BucketInfo, error) {
 	if err != nil {
 		return BucketInfo{}, err
 	}
-	info := BucketInfo{Created: b.createdAt, Region: b.region, Versioning: b.versioning, Lifecycle: slices.Clone(b.lifecycle)}
+	info := BucketInfo{
+		Created:    b.createdAt,
+		Region:     b.region,
+		Versioning: b.versioning,
+		Lifecycle:  slices.Clone(b.lifecycle),
+		Tags:       maps.Clone(b.tags),
+	}
 	for _, q := range b.notifications.Queues {
 		n := NotificationView{QueueARN: q.Queue, Events: slices.Clone(q.Events)}
 		if q.Filter != nil {

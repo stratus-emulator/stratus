@@ -236,6 +236,31 @@ func TestFormatBytes(t *testing.T) {
 	}
 }
 
+func TestUIBucketDetailShowsTags(t *testing.T) {
+	_, ts := newUIServer(t)
+	code, page := get(t, ts.URL+"/_stratus/ui/s3/files")
+	if code != http.StatusOK || !strings.Contains(page, "<dt>Tags</dt><dd>None</dd>") {
+		t.Fatalf("initial bucket detail = %d, without empty Tags row", code)
+	}
+	req, err := http.NewRequest(http.MethodPut, ts.URL+"/files?tagging", strings.NewReader(
+		`<Tagging><TagSet><Tag><Key>team</Key><Value>core</Value></Tag><Tag><Key>env</Key><Value>prod</Value></Tag></TagSet></Tagging>`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("PutBucketTagging = %d, want 204", resp.StatusCode)
+	}
+	code, page = get(t, ts.URL+"/_stratus/ui/s3/files")
+	if code != http.StatusOK || !strings.Contains(page, "<div><code>env</code> = <code>prod</code></div><div><code>team</code> = <code>core</code></div>") {
+		t.Fatalf("tagged bucket detail = %d, without sorted tags in page", code)
+	}
+}
+
 func TestUIStreamDetailShowsEncryption(t *testing.T) {
 	_, ts := newUIServer(t)
 	code, page := get(t, ts.URL+"/_stratus/ui/kinesis/events")
